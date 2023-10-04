@@ -1,0 +1,361 @@
+---
+title: "imdbtop1000project"
+output:
+  html_document:
+    df_print: paged
+---
+Hello, and welcome to my first project in hopefully what will be a long career in data analysis. Today i'm going to be attempting to analyze different elements from a dataset containing the top 1000 movies from IMDB. I've obtained this dataset from kaggle which can be accessed through this link: https://www.kaggle.com/datasets/omarhanyy/imdb-top-1000.
+
+Today I will be analyzing the following elements:
+
+1. Movie count by decade.
+2. Which successful primary actor ('star 1' in dataset) is the most successful with at least 3 movies.
+3. Which supporting actor ('star 2' in dataset) is the most successful with at least 2 movies.
+4. The most successful directors with at least 3 movies.
+5.Which secondary supporting actor is the most successful with at least 2 movies.
+6. What is the movie proportion by genre.
+7. What is the average runtime of movies by year in the last century.
+8. Count of movies by year. 
+
+The first thing I will do is install all necessary packages:
+```{r install package, eval=FALSE, include=FALSE}
+install.packages("tidyverse")
+install.packages("tidyr")
+install.packages("dplyr")
+install.packages("janitor")
+install.packages("ggplot2")
+install.packages("ggthemes")
+install.packages("stringr")
+```
+Now I will load them :
+```{r loading packages}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+library(ggthemes)
+```
+
+Now that everything is installed and loaded I will load the data into R using the read.csv function.
+```{r loading data}
+imdbtop1000 <-read.csv("~/Downloads/imdb_top_1000.csv", sep = ",")
+```
+
+Now that the data is loaded the first thing I'm going to do sort through and clean the data.
+
+The first thing I inspected were the field names. There were no misspellings or duplicates in the field names, however many of the names were typed in titlecase. I will use the clean_names() function from the janitor packages to fix this.
+
+```{r cleaning field names}
+imdbtop1000v1 <- imdbtop1000%>%
+  clean_names()
+```
+
+The next thing I inspected was whether or not there were any empty columns or rows and there were none.
+
+Now i'll check for duplicates using the get_dupes function.
+
+```{r checking for duplicates}
+imdbtop1000v1 %>%
+  get_dupes(poster_link)
+```
+After checking to see if there are any duplicates, which there isn't, ill check for any missing values using the summary function.
+
+```{r checking for any null values}
+summary(imdbtop1000v1)
+```
+
+After running the summary function I notive that there are 157 null values in the metascore column, I will replace those null values with the average meta score across the whole dataset, which can be rounded to 78.
+
+```{r replacing null values in metascore column}
+imdbtop1000v2 <- imdbtop1000v1 %>%
+  mutate(meta_score = coalesce(meta_score, 78))
+```
+
+I will then check again for any null values.
+
+```{r pulling summary of imdbtop1000v2}
+summary(imdbtop1000v2)
+```
+After I ran the summary function I was able to confirm that there are no longer any null values in the dataset. 
+
+The next thing I need to do is check for any missplaced values. 
+```{r checking for misplaced values}
+imdbtop1000v2 %>%
+  count(released_year)
+```
+After checking all the released_year I see that 'PG' is accidentally placed into the 'released_year' column. So I will located where that 'PG' is located.
+
+```{r finding the misplaced PG}
+imdbtop1000v2%>%
+  filter(released_year == 'PG')
+```
+After pulling the record for the misplaced 'PG' I find that it's for the movie 'Apollo 13' so I will replace the 'PG' with what I found after doing research the actually releasd date, which is 1995, and the certificate is indeed 'PG' so I will replace that as well.
+
+```{r replacing pg with 1995 and u with PG}
+
+
+
+imdbtop1000v4 <- imdbtop1000v2 %>% 
+  mutate(released_year = str_replace(released_year, 'PG', '1995'))
+
+imdbtop1000v4 <- imdbtop1000v4 %>%
+  mutate(certificate = str_replace(certificate, 'U', 'PG'))
+```
+
+After I replaced both those observations with the corresponding correct observations I will check to confirm it was indeed changed and also check all other fields for misplaced observations.
+
+
+```{r confirming changed made}
+imdbtop1000v4%>%
+  filter(series_title == 'Apollo 13')
+
+```
+```{r}
+imdbtop1000v4%>%
+  count(certificate)
+```
+After running the count for certificate I see one observation that shows a 16 I will investigate this further...
+
+```{r Finding out of place ratings}
+imdbtop1000v4%>%
+  filter(certificate == 16)
+
+imdbtop1000v4%>%
+  filter(certificate == 'PGnrated')
+
+```
+
+After looking at the  certificates I see one of the ratings is simply a number of 16, after researching I was able to find that there is no rating for this moving so I will change this to NA along with 101 other blank values. Another thing I noticed is that there are two different 'PGA' observations one with a forward slash and one without the one with a forward slash I will change to 'PGA'. There was an additional rating of 'PGnated' after doing research I found out that movie is actually not rated so it will get a null value as well.
+
+```{r making necessary changes to clean}
+
+  
+
+imdbtop1000v4 %>%
+  count(certificate)
+
+
+imdbtop1000v7<- imdbtop1000v4%>%
+  mutate(certifcate = str_replace(certificate, "NA", "None"))
+
+imdbtop1000v7 <- imdbtop1000v4%>%
+  mutate(certificate = str_replace(certificate, "PG/A", "PGA"))
+
+imdbtop1000v7 <- imdbtop1000v7%>%
+  mutate(certificate = str_replace(certificate, "PGnrated", ""))
+
+imdbtop1000v7 <- imdbtop1000v7%>%
+  mutate(certificate = str_replace(certificate, 'NA', ""))
+
+imdbtop1000v7 <- imdbtop1000v7 %>%
+  mutate(across(where(is.character), ~ na_if(.,"")))
+```
+After cleaning up the certificate column I will check the other columns for uniformity.
+
+```{r Checking the genre column}
+imdbtop1000v7 %>%
+  count(genre)
+
+```
+
+
+That was my last step in the cleaning process so now I move on to what is referred to as the 'analyze' step in the data analytics process. The first thing I'm going to try to analyze is the movie count by decade. One of the things that is obvious after looking at the data is there is no decade column to make this process easier, the first thing I need to do is figure what is the eariest year and the latest year in the dataset, so I know where to begin and end my case 
+statement.
+
+```{r finding min and max released_year}
+imdbtop1000v7%>%
+  slice_max(released_year, n = 1)
+  
+```
+now the minimum...
+
+```{r finding the minimum release year}
+imdbtop1000v7%>%
+  slice_min(released_year, n = 1)
+```
+
+After find the min and max release year I will use a case_when statement to assign each movie to its appropiate decade in a new column which will be named 'decade'.
+
+
+```{r using case_when statement to create a new column; decade}
+imdbtop1000v8 <- imdbtop1000v7 %>%
+  mutate(decade = case_when(released_year >= 1920 & released_year < 1930 ~ 1920,
+                            released_year >= 1930 & released_year < 1940 ~ 1930,
+                            released_year >= 1940 & released_year < 1950 ~ 1940,
+                            released_year >= 1950 & released_year < 1960 ~ 1950,
+                            released_year >= 1960 & released_year < 1970 ~ 1960,
+                            released_year >= 1970 & released_year < 1980 ~ 1970,
+                            released_year >= 1980 & released_year < 1990 ~ 1980,
+                            released_year >= 1990 & released_year < 2000 ~ 1990,
+                            released_year >= 2000 & released_year < 2010 ~ 2000,
+                            released_year >= 2010 & released_year < 2020 ~ 2010,
+                            released_year >= 2020 & released_year < 2030 ~ 2020))
+```
+
+
+
+```{r showing first 12 rows of imdbtop1000v8}
+head(imdbtop1000v8, n = 12)
+```
+
+After confirming that the decade column is indeed there, I will then count the number of movies by decade.
+
+```{r counting number of movies by decade}
+imdbtop1000v8moviecountbd <- imdbtop1000v8%>%
+  group_by(decade)%>%
+  summarize(number_of_movies = n())
+
+imdbtop1000v8moviecountbd
+```
+
+After viewing the count by decade it's clear that the majority of movies on this list were released between 2000 and 2020. I can visualize this better using ggplot.
+
+```{r ggplot visualization of movie count by decade}
+imdbtopcountbdviz <- ggplot(imdbtop1000v8moviecountbd,aes(decade, number_of_movies))+
+  geom_bar(fill = "blue", stat = "identity")+
+  theme_wsj()+
+  labs(title = "Movie Count by Decade")
+
+print(imdbtopcountbdviz)
+```
+
+
+Another thing I'm curious about is which decades contains movies with an 'imdb' rating of 8.5 or higher. I will get the count and vizualize this.
+
+```{r getting count of movies with an imdb rating of 8.5 or higher and visualizing}
+imdb8.5highercountbd <- imdbtop1000v8%>%
+  filter(imdb_rating >= 8.5)%>%
+  group_by(decade)%>%
+  summarize(number_of_movies = n())
+
+ggplot(imdb8.5highercountbd, aes(decade, number_of_movies))+
+  geom_bar(fill = "blue", stat= "identity")+
+  scale_x_continuous(breaks = seq(1930, 2020, by =10))+
+  theme_classic()+
+  labs(title = "Movie Count by Decade with Imdb Rating of 8.5 or Higher")
+```
+
+Although the majority of movies on the list are between 2000 and 2020, 1990 contains the most movies with an imdb rating of 8.5 or higher. The next thing I would like to figure out is which decade has the highest average imdb rating on this list. I will first find the average for each decade and vizualize it using ggplot.
+
+```{r finding average imdb rating by decade and then visualizing}
+imdbavgimdbbd <- imdbtop1000v8 %>%
+  group_by(decade)%>%
+  summarize(average_imdb_score = mean(imdb_rating))
+
+idmbavgimdbbdviz <- ggplot(imdbavgimdbbd, aes(decade, average_imdb_score))+
+  geom_bar(fill = "blue", stat = "identity")+
+  scale_x_continuous(breaks = seq(1920, 2020, by = 10))+
+  theme_classic()+
+  labs(title = "Avg Imdb Rating by Decade", subtitle = "From top 1000 movies list with a minium rating of 7.6 and a maximum rating of 9.3")
+
+print(idmbavgimdbbdviz)
+```
+
+From the visualization it shows that the years 1920 and 2020 have a marginally higher avg imdb score then the rest.
+
+The next thing I would like to figure out is which primary actor (referred to as 'star 1' in dataset) with a minimum of 30 movies has the most movies in the dataset, so first I will count the 'star 1' and disregard any actors who have a movie count under 30. 
+
+```{r finding the count of of movies by star1}
+imdbstar1count <- imdbtop1000v8 %>%
+  group_by(star1)%>%
+  summarize(number_of_movies = n())
+
+
+
+```
+
+```{r filtering for a count of 3 or more}
+imdbstar1count3 <- imdbstar1count%>%
+  filter(number_of_movies >= 3)%>%
+  select(star1, number_of_movies)%>%
+  arrange(desc(number_of_movies))
+
+print(imdbstar1count3)
+```
+
+After finding the count it's clear that Tom Hanks has the most appearances in this dataset with 12 movies with Robert De Niro coming in behind with 11. 
+
+I will visualize the top six on this list with a bar chart. 
+
+```{r finding the top six and visualizing on ggplot}
+imdbstar1count3top <- imdbstar1count3 %>%
+  slice_max(number_of_movies, n = 6)
+
+imdbstar1count3viz <- ggplot(imdbstar1count3top, aes(star1, number_of_movies))+
+  geom_bar(fill = "blue", stat = "identity")+
+  theme_classic()+
+  labs(title = "Most Number of Movies Appeared in", subtitle = "from the imdb top 1000 movies dataset")
+
+print(imdbstar1count3viz)
+```
+
+Now that I found out which starting actor(star1) has the most movies on this list, I am going to figure out which supporting actor(shown as star2 in dataset) with a minimum appearance count of 2 has the most appearances on this list, I will begin by first finding the count of the supporting actors and then visualizing them using ggplot.
+
+```{r finding count of movies by star2, then filtering for 2 or more movies}
+imdbstar2count <- imdbtop1000v8 %>%
+  group_by(star2)%>%
+  summarize(number_of_movies = n())
+
+imdbstar2count2 <- imdbstar2count%>%
+  filter(number_of_movies >= 2)%>%
+  arrange(desc(number_of_movies))
+
+print(imdbstar2count2)
+```
+
+After bringing up the count it's clear to see that Emma Watson has the most movies with 7 with Matt Damon behind with 5. I can now visualize the top 3 with ggplot. 
+
+```{r visualizing the top 3 movie count with ggplot}
+imdbstar2count2top <- imdbstar2count%>%
+  slice_max(number_of_movies, n = 3)
+
+imdbstar2count2viz <- ggplot(imdbstar2count2top, aes(star2, number_of_movies))+
+  geom_bar(fill = "blue", stat= "identity")+
+  theme_classic()+
+  labs(title = "Most Number of Movies Appearing in by a Supporting Actor", subtitle = "from the imdb top 1000 movies dataset")+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+
+print (imdbstar2count2viz)
+```
+
+The next thing I would like to figure out is which director, with a minimum count of 3 movies, has the most appearances on this list of top 1000 movies. I begin like I did with the previous tasks by counting the number of appearances and finding out who has the most.
+
+```{r finding the number of movies by director and filtering for 3 or more movies}
+imdbdirectorcount <- imdbtop1000v8%>%
+  group_by(director)%>%
+  summarize(number_of_movies = n())
+
+imdbdirectorcount3 <- imdbdirectorcount%>%
+  filter(number_of_movies >= 3)%>%
+  arrange(desc(number_of_movies))
+
+print(imdbdirectorcount3)
+```
+
+The most appearances on this list are by Alfred Hitchcock with 14 and then Steven Spielberg with 13. I can visualize this using ggplot.
+
+```{r finding the top 5 results and visualizing with ggplot}
+imdbdirectorcount3top <- imdbdirectorcount3%>%
+  slice_max(number_of_movies, n = 5)
+  
+imdbdirectorcount3viz <- ggplot(imdbdirectorcount3top, aes(director, number_of_movies))+
+  geom_bar(fill = "blue", stat = "identity")+
+  theme_classic()+
+  labs(title = "Most Number of Movies Directed", subtitle = "from the imdb top 1000 movies dataset")
+
+print(imdbdirectorcount3viz)
+```
+
+After finding the top 5 directors I am wondering what directors have the highest imdb rating. 
+
+```{r finding the average imdb rating by director and arranging from highest to lowest.}
+imdbdirectoravgimdb <- imdbtop1000v8%>%
+  group_by(director)%>%
+  summarize(average_imdb_rating = mean(imdb_rating))
+
+imdbdirectoravgimdb1 <- imdbdirectoravgimdb %>%
+  arrange(desc(average_imdb_rating))
+
+print(imdbdirectoravgimdb1)
+```
